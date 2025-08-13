@@ -7,13 +7,15 @@ import pathlib
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-# change these to reflect the folders on your system
-DATA_DIR = '/data/UKBB/capture24/data/'  # location of Capture-24 (the .csv.gz files should be in this folder)
-OUT_DIR = '/data/UKBB/capture24_30hz_w30_o0/'  # output location of the processed dataset
+# Get the absolute path to the repo root (2 levels up from this file)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+# Default data and output directories relative to the repo root
+DATA_DIR = os.path.join(REPO_ROOT, 'data', 'capture24')  # where the .csv.gz and annotation CSV live
+OUT_DIR = os.path.join(REPO_ROOT, 'data', 'UKBB', 'capture24_30hz_w30_o0')  # processed output
 # number of CPU cores to use, need ~1.5GB memory per worker
 # don't set this higher than the number of physical cores
-NUM_WORKERS = 4
+NUM_WORKERS = 1
 
 # don't edit below this line (unless deliberately changing parameters)
 DEVICE_HZ = 100  # Hz

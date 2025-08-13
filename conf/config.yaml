@@ -1,8 +1,8 @@
 gpu: -1
 multi_gpu: false
 gpu_ids: [0, 1, 2]
-num_workers: 10  # number of CPU cores for parallel tasks
-
+num_workers: 2  # number of CPU cores for parallel tasks
+ssl_repo_path: /home/user/ssl-wearables
 # location where to save prediction outputs
 ukb_output_path: outputs
 
