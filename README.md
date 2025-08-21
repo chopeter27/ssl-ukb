@@ -40,6 +40,8 @@ python utils/make_capture24.py
 
 This will save the dataset in Numpy format in the `OUT_DIR` folder (takes ~5 min with 8 workers).
 
+(this took VivoSense Posit Workspace 51 minutes to run)
+
 ### Configuration
 Configuration parameters are located in `conf/config.yaml`. Below are the important settings that **need** to be changed based on your system. The other settings can stay as default.
 

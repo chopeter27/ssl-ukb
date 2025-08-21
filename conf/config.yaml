@@ -2,13 +2,13 @@ gpu: -1
 multi_gpu: false
 gpu_ids: [0, 1, 2]
 num_workers: 2  # number of CPU cores for parallel tasks
-ssl_repo_path: /home/user/ssl-wearables
+ssl_repo_path: /home/peter.cho@vivosense.com/ssl-wearables
 # location where to save prediction outputs
-ukb_output_path: outputs
+ukb_output_path: /home/peter.cho@vivosense.com/ssl-ukb/outputs
 
 # For offline usage only (eg BMRC): set this to the location of the OxWearables/ssl-wearables repository.
 # Leave empty otherwise (will auto download repo from Github when empty).
-ssl_repo_path:
+# ssl_repo_path: 
 
 sslnet:
   weights: weights/state_dict.pt
@@ -30,7 +30,7 @@ hmm:
 data:
   name: 'capture24'
   output_size: 4
-  data_root: /data/UKBB/capture24_30hz_w30_o0
+  data_root: /home/peter.cho@vivosense.com/ssl-ukb/data/UKBB/capture24_30hz_w30_o0
   X_path: "${.data_root}/X.npy"
   Y_path: "${.data_root}/Y_Walmsley.npy"
   PID_path: "${.data_root}/pid.npy"
