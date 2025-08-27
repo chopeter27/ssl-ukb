@@ -25,6 +25,7 @@ def get_rf(num_workers=1, oob_score=True):
         n_estimators=3000,
         replacement=True,
         sampling_strategy="not minority",
+        bootstrap=True,
         n_jobs=num_workers,
         random_state=42,
         oob_score=oob_score
