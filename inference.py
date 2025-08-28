@@ -89,6 +89,27 @@ def df_to_windows(df):
 
     return x, t[:, 0]  # only return the first timestamp for each window
 
+def read_csv_device(input_file):
+    """Read CSV accelerometer data directly with pandas"""
+    import pandas as pd
+    import gzip
+    
+    if input_file.endswith('.gz'):
+        with gzip.open(input_file, 'rt') as f:
+            data = pd.read_csv(f, parse_dates=True, index_col=0)
+    else:
+        data = pd.read_csv(input_file, parse_dates=True, index_col=0)
+    
+    # Basic info dict
+    info = {
+        'Filename': input_file,
+        'Device': 'CSV',
+        'ReadErrors': 0,
+        'SampleRate': 100,  # assume 100Hz, adjust if needed
+        'NumTicks': len(data)
+    }
+    
+    return data, info
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='SSL UKB', usage='Apply the SSL+HMM model on a UKB cwa file.')
@@ -118,11 +139,13 @@ if __name__ == '__main__':
         my_device = "cpu"
 
     # load data and construct dataloader
-    data, info = actipy.read_device(input_file,
-                                    lowpass_hz=None,
-                                    calibrate_gravity=True,
-                                    detect_nonwear=True,
-                                    resample_hz=DEVICE_HZ)
+    # data, info = actipy.read_device(input_file,
+    #                                 lowpass_hz=None,
+    #                                 calibrate_gravity=True,
+    #                                 detect_nonwear=True,
+    #                                 resample_hz=DEVICE_HZ)
+    
+    data, info = read_csv_device(input_file)
     log.info(data.head(1))
     log.info(info)
     info = pd.DataFrame(info, index=[1])
@@ -171,8 +194,8 @@ if __name__ == '__main__':
     df['label_hmm'] = pd.Series(utils.le.inverse_transform(y_pred_hmm), index=df.index, dtype=dtype)
 
     # reindex for missing values
-    newindex = pd.date_range(data_start, data_end, freq='{s}S'.format(s=WINDOW_SEC))
-    df = df.reindex(newindex, method='nearest', fill_value=np.nan, tolerance='5S')
+    newindex = pd.date_range(data_start, data_end, freq='{s}s'.format(s=WINDOW_SEC))
+    df = df.reindex(newindex, method='nearest', fill_value=np.nan, tolerance='5s')
     log.info('Done')
 
     # save dataframe
