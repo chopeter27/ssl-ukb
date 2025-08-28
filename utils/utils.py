@@ -30,7 +30,7 @@ def resize(x, length, axis=1):
     return x
 
 
-def raw_to_df(data, labels, time, classes, label_proba=False, reindex=True, freq='30S'):
+def raw_to_df(data, labels, time, classes, label_proba=False, reindex=True, freq='30s'):
     """
     Construct a DataFrome from the raw data, prediction labels and time Numpy arrays.
 
@@ -87,7 +87,7 @@ def raw_to_df(data, labels, time, classes, label_proba=False, reindex=True, freq
     # df = df.tz_localize('Europe/London', ambiguous='NaT', nonexistent='NaT')
     if reindex:
         newindex = pd.date_range(df.index[0], df.index[-1], freq=freq)
-        df = df.reindex(newindex, method='nearest', fill_value=np.nan, tolerance='5S')
+        df = df.reindex(newindex, method='nearest', fill_value=np.nan, tolerance='5s')
 
     return df
 

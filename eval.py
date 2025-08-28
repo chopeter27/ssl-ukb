@@ -12,6 +12,10 @@ import joblib
 import torch
 import numpy as np
 import os
+
+# Set matplotlib to use non-GUI backend for parallel safety
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import sklearn.metrics as metrics
@@ -45,6 +49,9 @@ if __name__ == '__main__':
         my_device = "cuda:" + str(GPU)
     else:
         my_device = "cpu"
+
+    # Create plots directory if it doesn't exist
+    os.makedirs('plots', exist_ok=True)
 
     # load pretrained SSL model
     sslnet = ssl.get_sslnet(my_device, cfg, load_weights=True)
@@ -95,7 +102,8 @@ if __name__ == '__main__':
     # save performance scores and plots for every single subject
     my_pids = np.unique(pid_test)
 
-    def score(name, current_pid, pid, y, y_pred, y_pred_hmm):
+    def score_only(current_pid, pid, y, y_pred, y_pred_hmm):
+        """Calculate scores only - no plotting"""
         subject_filter = current_pid == pid
         subject_true = y[subject_filter]
         subject_pred = y_pred[subject_filter]
@@ -107,31 +115,64 @@ if __name__ == '__main__':
         cmatrix = metrics.confusion_matrix(subject_true, subject_pred, labels=utils.classes)
         cmatrix_hmm = metrics.confusion_matrix(subject_true, subject_pred_hmm, labels=utils.classes)
 
-        # plot subject predictions
+        return result, result_hmm, cmatrix, cmatrix_hmm
+
+    def plot_subject(name, current_pid, pid, y, y_pred, y_pred_hmm):
+        """Plot for a single subject - called sequentially"""
+        subject_filter = current_pid == pid
+        subject_true = y[subject_filter]
+        subject_pred = y_pred[subject_filter]
+        subject_pred_hmm = y_pred_hmm[subject_filter]
+
+        # Create DataFrames for plotting
         df_true = utils.raw_to_df(x_test[subject_filter], subject_true, time_test[subject_filter], le.classes_)
         df_pred = utils.raw_to_df(x_test[subject_filter], subject_pred, time_test[subject_filter], le.classes_)
         df_pred_hmm = utils.raw_to_df(x_test[subject_filter], subject_pred_hmm, time_test[subject_filter], le.classes_)
 
-        fig = plotTimeSeries(df_true)
-        fig.savefig('plots/{pid}_true.png'.format(pid=current_pid), dpi=200)
-        plt.close()
+        # Save DataFrames to temporary CSV files since plotTimeSeries expects file paths
+        true_csv_file = 'plots/{pid}_true_temp.csv'.format(pid=current_pid)
+        pred_csv_file = 'plots/{pid}_{model}_pred_temp.csv'.format(pid=current_pid, model=name)
+        pred_hmm_csv_file = 'plots/{pid}_{model}_pred_hmm_temp.csv'.format(pid=current_pid, model=name)
+        
+        true_plot_file = 'plots/{pid}_true.png'.format(pid=current_pid)
+        pred_plot_file = 'plots/{pid}_{model}_pred.png'.format(pid=current_pid, model=name)
+        pred_hmm_plot_file = 'plots/{pid}_{model}_pred_hmm.png'.format(pid=current_pid, model=name)
 
-        fig = plotTimeSeries(df_pred)
-        fig.savefig('plots/{pid}_{model}_pred.png'.format(pid=current_pid, model=name), dpi=200)
-        plt.close()
+        # Save DataFrames to CSV files
+        df_true.to_csv(true_csv_file, index=True)
+        df_pred.to_csv(pred_csv_file, index=True)
+        df_pred_hmm.to_csv(pred_hmm_csv_file, index=True)
 
-        fig = plotTimeSeries(df_pred_hmm)
-        fig.savefig('plots/{pid}_{model}_pred_hmm.png'.format(pid=current_pid, model=name), dpi=200)
-        plt.close()
+        # Now use plotTimeSeries with CSV file paths
+        try:
+            fig = plotTimeSeries(true_csv_file, true_plot_file)
+            if fig:
+                plt.close(fig)
 
-        return result, result_hmm, cmatrix, cmatrix_hmm
+            fig = plotTimeSeries(pred_csv_file, pred_plot_file)
+            if fig:
+                plt.close(fig)
+
+            fig = plotTimeSeries(pred_hmm_csv_file, pred_hmm_plot_file)
+            if fig:
+                plt.close(fig)
+        except Exception as e:
+            log.warning(f"Failed to plot for subject {current_pid}: {e}")
+        finally:
+            # Clean up temporary CSV files
+            for temp_file in [true_csv_file, pred_csv_file, pred_hmm_csv_file]:
+                if os.path.exists(temp_file):
+                    try:
+                        os.remove(temp_file)
+                    except:
+                        pass
 
     log.info('Process results')
-    # Use joblib lazy parallel cause plotting is slow
+    # Use parallel processing for scoring only (no plotting)
     # SSL results
     results, results_hmm, cmatrix, cmatrix_hmm = zip(*Parallel(n_jobs=cfg.num_workers)(
-        delayed(score)('SSL', current_pid, pid_test, y_test, y_test_pred, y_test_pred_hmm)
-        for current_pid in tqdm(my_pids)
+        delayed(score_only)(current_pid, pid_test, y_test, y_test_pred, y_test_pred_hmm)
+        for current_pid in tqdm(my_pids, desc="SSL scoring")
     ))
 
     results = np.array(results)
@@ -140,11 +181,16 @@ if __name__ == '__main__':
     cmatrix = pd.DataFrame(np.sum(cmatrix, axis=0), index=le.classes_, columns=le.classes_)
     cmatrix_hmm = pd.DataFrame(np.sum(cmatrix_hmm, axis=0), index=le.classes_, columns=le.classes_)
 
+    # Plot SSL results sequentially (to avoid parallel plotting issues)
+    log.info('Creating SSL plots')
+    for current_pid in tqdm(my_pids, desc="SSL plotting"):
+        plot_subject('SSL', current_pid, pid_test, y_test, y_test_pred, y_test_pred_hmm)
+
     if cfg.rf.enabled:
         # RF results
         results_rf, results_hmm_rf, cmatrix_rf, cmatrix_hmm_rf = zip(*Parallel(n_jobs=cfg.num_workers)(
-            delayed(score)('RF', current_pid, pid_test, y_test, y_test_pred_rf, y_test_pred_hmm_rf)
-            for current_pid in tqdm(my_pids)
+            delayed(score_only)(current_pid, pid_test, y_test, y_test_pred_rf, y_test_pred_hmm_rf)
+            for current_pid in tqdm(my_pids, desc="RF scoring")
         ))
 
         results_rf = np.array(results_rf)
@@ -152,6 +198,11 @@ if __name__ == '__main__':
 
         cmatrix_rf = pd.DataFrame(np.sum(cmatrix_rf, axis=0), index=le.classes_, columns=le.classes_)
         cmatrix_hmm_rf = pd.DataFrame(np.sum(cmatrix_hmm_rf, axis=0), index=le.classes_, columns=le.classes_)
+
+        # Plot RF results sequentially
+        log.info('Creating RF plots')
+        for current_pid in tqdm(my_pids, desc="RF plotting"):
+            plot_subject('RF', current_pid, pid_test, y_test, y_test_pred_rf, y_test_pred_hmm_rf)
 
         # confusion matrix plots
         plots = {
