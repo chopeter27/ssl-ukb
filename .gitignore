@@ -201,3 +201,4 @@ plots/
 # Python tarball & extracted source
 Python-3.9.19/
 Python-3.9.19.tgz
+*.png
